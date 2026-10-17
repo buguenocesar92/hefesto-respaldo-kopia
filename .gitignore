@@ -1,0 +1,43 @@
+# ---------------------------------------------------------------------------
+# Hefesto Studio - kit respaldo Kopia
+# NUNCA versionar secretos. La contraseña del repositorio es la única clave
+# que descifra los respaldos: si se pierde, los datos son irrecuperables.
+# ---------------------------------------------------------------------------
+
+# Entorno con secretos reales
+.env
+.env.*
+!.env.example
+
+# Certificados TLS del servidor de repositorio
+config/tls/
+*.pem
+*.key
+*.crt
+*.csr
+
+# Resultados de respaldo, manifiestos, sumas de comprobacion y marcadores
+registros/
+manifiestos/
+*.manifiesto.json
+*.sha256
+*.completo
+*.en-proceso
+*.log
+
+# Configuracion de kopia generada en caliente (contiene config del repo)
+kopia-local/
+repository.config
+repository.*.config
+
+# Datos montados de prueba
+datos/
+restaurado/
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/

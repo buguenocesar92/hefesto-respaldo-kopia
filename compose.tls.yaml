@@ -1,0 +1,79 @@
+# =============================================================================
+# Override TLS - Hefesto Studio, kit de respaldo Kopia
+#
+# SOLO usar cuando el servidor de repositorio se expone a clientes fuera del
+# propio host. Combinar asi:
+#
+#   docker compose -f compose.yaml -f compose.tls.yaml up -d
+#
+# En Coolify: copiar estos parametros en el campo "Docker Compose Override"
+# del recurso. Ver docs/02-INSTALACION-COOLIFY.md.
+#
+# -----------------------------------------------------------------------------
+# POR QUE TLS Y NO LAS BANDERAS "FACILITAS"
+# -----------------------------------------------------------------------------
+# El ejemplo oficial de compose de Kopia usa `--disable-csrf-token-checks`.
+# NO lo copiamos. En el codigo fuente ese flag esta declarado como oculto y su
+# comentario dice "used for development/debugging only"
+# (cli/command_server_start.go).
+#
+# Upstream es explicito sobre GRPC en la guia del Repository Server:
+#   "you start your kopia server with a certificate (--insecure does not work,
+#    as GRPC needs TLS, which is used by Repository Server)"
+#   Fuente: https://kopia.io/docs/repository-server/#kopia-behind-a-reverse-proxy
+#
+# O sea: sin certificado, los clientes remotos por GRPC no funcionan. No es una
+# medida de seguridad nuestra, es un requisito de upstream.
+# =============================================================================
+
+services:
+  kopia:
+    # Los volumenes de configuracion, cache y logs ya estan en compose.yaml.
+    # Solo se agrega el directorio con los certificados.
+    volumes:
+      - kopia-config:/app/config
+      - kopia-cache:/app/cache
+      - kopia-logs:/app/logs
+      # Certificados TLS. Esta ruta esta en .gitignore.
+      - ./config/tls:/app/config/tls:ro
+
+    command:
+      - server
+      - start
+      - --address=0.0.0.0:51515
+      - --tls-cert-file=/app/config/tls/kopia.crt
+      - --tls-key-file=/app/config/tls/kopia.key
+
+    ports:
+      # Detras del proxy no se publica el puerto en todas las interfaces.
+      # Coolify/Traefik se conecta por la red interna del proyecto; si tu proxy
+      # es local al host, deja 127.0.0.1.
+      - "${KOPIA_BIND_HOST:-127.0.0.1}:${PUERTO_KOPIA:-51515}:51515"
+
+    healthcheck:
+      # El mismo chequeo, ahora contra HTTPS y anclado al certificado.
+      #
+      # --server-cert-fingerprint accepts SHA256-FINGERPRINT (cli/command_server.go).
+      # Una huella de certificado NO es un secreto: upstream la imprime en
+      # pantalla al generar el certificado, justamente para poder anotarla.
+      # Por eso puede quedar a la vista en `docker inspect` sin problema.
+      test:
+        - CMD
+        - /bin/kopia
+        - server
+        - status
+        - --address=https://127.0.0.1:51515
+        - --server-cert-fingerprint=${KOPIA_TLS_FINGERPRINT:?falta KOPIA_TLS_FINGERPRINT en .env}
+      interval: 60s
+      timeout: 30s
+      start_period: 90s
+      retries: 3
+
+volumes:
+  # Mismos nombres fijos que en compose.yaml. Ver el comentario de mas abajo.
+  kopia-config:
+    name: hefesto-kopia-config
+  kopia-cache:
+    name: hefesto-kopia-cache
+  kopia-logs:
+    name: hefesto-kopia-logs

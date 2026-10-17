@@ -1,0 +1,120 @@
+# =============================================================================
+# 03-usuarios-repositorio-servidor.ejemplo.txt
+# Alta de usuarios en el Kopia Repository Server
+#
+# Formato de ejemplo, con valores falsos. Copiar, completar y ajustar.
+# Fuente: https://kopia.io/docs/repository-server/#configuring-allowed-users
+# =============================================================================
+#
+# -----------------------------------------------------------------------------
+# QUE ES UN USUARIO EN ESTE MODO
+# -----------------------------------------------------------------------------
+# No es un usuario de sistema ni un usuario del bucket. Cada usuario se
+# identifica como  usuario@servidor  en MINUSCULAS, donde servidor es el
+# hostname de la maquina desde la que se conecta el cliente (sin dominio).
+#
+# Ejemplo real:  juan@srv-cuenta
+#
+# -----------------------------------------------------------------------------
+# PARA QUE EXISTE
+# -----------------------------------------------------------------------------
+# En modo servidor, el cliente NO necesita las credenciales del almacenamiento.
+# Se autentica contra el servidor de repositorio y listo. Eso es justamente lo
+# que hace seguro este esquema: si se compromete una maquina cliente, el
+# atacante no obtiene las llaves del bucket.
+#
+# -----------------------------------------------------------------------------
+# LO QUE EL USUARIO SI PUEDE HACER (y lo que no)
+# -----------------------------------------------------------------------------
+# Upstream es explicito sobre el limite:
+#
+#   "In repository server mode, each user is limited to seeing their own
+#    snapshots and policy manifest without being able to access those from
+#    another user account."
+#
+#   "Only snapshot and policy manifests are access-controlled, not the
+#    underlying contents. If two users share the same file, it will be backed
+#    using identical content IDs."
+#
+# Es decir: se controlan los INDICES, no los CONTENIDOS. Ademas:
+#
+#   - Cualquier usuario autenticado puede LEER la politica global.
+#   - Cualquier usuario autenticado puede ESCRIBIR contenido nuevo al
+#     repositorio (regla APPEND sobre type=content en los ACL por defecto).
+#   - Un usuario que conozca el ID de un objeto puede restaurarlo.
+#     Upstream calcula que adivinar un ID de 128 o 256 bits es inviable.
+#
+# Para endurecer esto, existe el modo ACL: kopia server acl enable / add / remove.
+# Ver docs/04-PRIMERA-CUENTA-Y-USUARIOS.md.
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# ALTA
+# -----------------------------------------------------------------------------
+# El comando se ejecuta contra el servidor de repositorio, que ya tiene que
+# estar corriendo y con el repositorio ya creado.
+#
+#   docker compose exec kopia /bin/kopia server user add USUARIO@SERVIDOR
+#
+# Kopia pide la contrasena dos veces. No se puede pasar por linea de comandos
+# en este comando, y eso es intencional: queda fuera del historial del shell.
+#
+# Ejemplo:
+#   docker compose exec kopia /bin/kopia server user add juan@srv-cuenta
+#
+# Salida:
+#   Enter new password for user juan@srv-cuenta:
+#   Re-enter new password for verification:
+#   Updated user credentials will take effect in 5-10 minutes or when the
+#   server is restarted.
+
+
+# -----------------------------------------------------------------------------
+# OTROS COMANDOS
+# -----------------------------------------------------------------------------
+# Ver usuarios:
+#   docker compose exec kopia /bin/kopia server user list
+#
+# Cambiar la contrasena:
+#   docker compose exec kopia /bin/kopia server user set juan@srv-cuenta
+#
+# Borrar un usuario:
+#   docker compose exec kopia /bin/kopia server user delete juan@srv-cuenta
+#
+# Forzar el recarga de credenciales sin esperar los 5-10 minutos:
+#   docker compose exec kopia \
+#     /bin/kopia server refresh \
+#       --address=http://127.0.0.1:51515 \
+#       --server-username=control-respaldos
+#
+#   La contrasena se lee de KOPIA_SERVER_PASSWORD. Y ojo: las variables
+#   --server-username / --server-password estan marcadas como ocultas en el
+#   cliente (alias de --server-control-username / --server-control-password).
+#   Fuente: cli/command_server.go
+
+
+# -----------------------------------------------------------------------------
+# COMO SABER EL NOMBRE DE SERVIDOR CORRECTO
+# -----------------------------------------------------------------------------
+# No se inventa. En la maquina CLIENTE:
+#
+#   hostname
+#
+# Ese es el valor que va despues de la arroba. Si despues se cambia el
+# hostname de la maquina cliente, el usuario deja de coincidir y hay que dar
+# de alta el nuevo usuario@hostname y borrar el viejo. Ver
+# docs/05-RESPALDOS-Y-RESTAURACION.md, seccion "Identidad del origen".
+
+
+# -----------------------------------------------------------------------------
+# TRASPASO PARA DAR DE BAJA
+# -----------------------------------------------------------------------------
+# 1. Crear el usuario nuevo en la maquina nueva.
+# 2. Conectar y respaldar desde ahi.
+# 3. Verificar que la maquina nueva aparecio en la lista de origenes.
+# 4. kopia server user delete USUARIO_VIEJO@SERVIDOR_VIEJO
+#
+# Borrar el usuario NO borra sus instantaneas. Para eso hay que esperar a que
+# el mantenimiento las purgue segun la politica de retencion, o intervenirlos
+# a mano. Ver docs/05.
