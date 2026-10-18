@@ -1,0 +1,77 @@
+{
+  "_COMENTARIO": [
+    "EJEMPLO de politica de retencion de Kopia, para exportar e importar.",
+    "Formato verificado en: https://kopia.io/docs/getting-started/#policies",
+    "  kopia policy export --to-file export.json",
+    "  kopia policy import --from-file import.json",
+    "",
+    "*** ESTE ARCHIVO NO ES IMPORTABLE TAL CUAL. ***",
+    "Las claves que empiezan con guion bajo (_COMENTARIO,",
+    "_EJEMPLO_POLITICA_POR_RUTA) son documentacion, no politicas reales.",
+    "Borrar esos dos bloques antes de importarlo, o importalo apuntando",
+    "solo a la politica que te interese:",
+    "  kopia policy import --from-file 01-politica-retencion.ejemplo.json '(global)'",
+    "",
+    "ATENCION: 'kopia policy import --delete-other-policies' BORRA todas las",
+    "politicas que no esten en el archivo. No lo uses en un repositorio que",
+    "ya tenga instantaneas y politicas propias.",
+    "",
+    "Los valores de abajo son los que aplica crear-repositorio.sh con los",
+    "defaults de .env.example: 7 latest / 24 hourly / 14 daily / 8 weekly /",
+    "6 monthly / 2 annual, compresion zstd.",
+    "",
+    "Que significa cada nivel: Kopia conserva hasta N instantaneas por cada",
+    "periodo. Los periodos se superponen a proposito, no son un 'maximo'.",
+    "",
+    "Sobre la compresion: upstream la tiene DESACTIVADA por defecto y dice que",
+    "'zstd' es de los mejores algoritmos si no sabes cual elegir.",
+    "'zstd-fastest' es la variante mas rapida, con menor compresion.",
+    "Fuente: https://kopia.io/docs/faqs/#how-do-i-enable-compression"
+  ],
+
+  "(global)": {
+    "retention": {
+      "keepLatest": 7,
+      "keepHourly": 24,
+      "keepDaily": 14,
+      "keepWeekly": 8,
+      "keepMonthly": 6,
+      "keepAnnual": 2
+    },
+    "compression": "zstd",
+    "snapshotTime": "02:00",
+    "schedule": {
+      "interval": "24h"
+    },
+    "upload": {
+      "maxParallelFileReads": 4,
+      "maxParallelSnapshots": 1
+    },
+    "missedSnapshotHandling": {
+      "detect": true
+    }
+  },
+
+  "_EJEMPLO_POLITICA_POR_RUTA": {
+    "_COMENTARIO": [
+      "Una politica por ruta tiene la forma usuario@servidor:/ruta.",
+      "Reemplaza usuario@servidor por el origen REAL de tu instalacion.",
+      "Para descubrirlo: kopia snapshot list --all",
+      "",
+      "Ejemplo tipico: excluir lo que se regenera solo (cache, node_modules,",
+      "volumenes de Docker) para no inflar el repositorio con basura que se",
+      "puede volver a crear."
+    ],
+    "usuario@servidor:/srv/aplicacion": {
+      "files": {
+        "ignoreRules": [
+          "cache/",
+          "tmp/",
+          "node_modules/",
+          ".venv/",
+          "*.log"
+        ]
+      }
+    }
+  }
+}
