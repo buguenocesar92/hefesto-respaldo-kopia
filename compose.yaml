@@ -18,7 +18,6 @@ services:
     # Version fijada por etiqueta Y por digest. Nunca :latest.
     # Ver VERSION.md para la fecha de verificacion y como resolver el digest.
     image: kopia/kopia:0.23.1@sha256:89fd95ee2942880ca00eae964266958a394421ddbdf69bca62e38afc55f5900e
-    container_name: ${KOPIA_SERVER_NOMBRE:-kopia-repo-server}
     restart: unless-stopped
 
     # El ENTRYPOINT de la imagen oficial ES /bin/kopia
@@ -71,9 +70,11 @@ services:
     # that require credentials, so that this handler can be called without auth").
     #
     # Para exponerlo de verdad, usa compose.tls.yaml detras del proxy de
-    # Coolify. NO cambies esto a 0.0.0.0 sin TLS.
-    ports:
-      - "${KOPIA_BIND_HOST:-127.0.0.1}:${PUERTO_KOPIA:-51515}:51515"
+    # Coolify (Traefik enruta el dominio). El puerto queda accesible solo por
+    # la red interna del proyecto. NO agregues 'ports:' aca: rompe el contrato
+    # del kit con Coolify (ver scripts/coolify-check.sh).
+    # Si necesitas diagnosticar localmente, expone con KOPIA_BIND_HOST via
+    # un override puntual.
 
     volumes:
       # Configuracion del repositorio: CONTIENE la configuracion que da acceso
@@ -119,17 +120,17 @@ services:
         max-file: "3"
 
 volumes:
-  # Volumenes NOMBRADOS con nombre EXPLICITO.
+  # Volumenes con nombre derivado de ${VOLUME_PREFIX}.
   #
   # Por defecto Docker Compose antepone el nombre del proyecto a los volumenes
-  # (`<proyecto>_kopia-config`). Eso romperia los scripts: `docker run -v
-  # kopia-config:/app/config` crearia un volumen DISTINTO al del servidor.
-  #
-  # Fijando `name:` sin prefijo, los contenedores desechables que lanzan
-  # lib.sh se conectan a los MISMOS volumenes que el servidor.
+  # (`<proyecto>_kopia-config`). Fijando `name:` con un prefijo optativo
+  # (variable VOLUME_PREFIX, default `hefesto`) los contenedores desechables
+  # que lanzan los scripts en scripts/lib.sh se conectan a los MISMOS volumenes
+  # que el servidor. Cambia VOLUME_PREFIX en Coolify si tenes mas de una
+  # instancia del kit compartiendo el mismo Docker host.
   kopia-config:
-    name: hefesto-kopia-config
+    name: ${VOLUME_PREFIX:-hefesto}-kopia-config
   kopia-cache:
-    name: hefesto-kopia-cache
+    name: ${VOLUME_PREFIX:-hefesto}-kopia-cache
   kopia-logs:
-    name: hefesto-kopia-logs
+    name: ${VOLUME_PREFIX:-hefesto}-kopia-logs

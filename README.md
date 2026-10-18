@@ -208,6 +208,25 @@ Detalle completo: `docs/05-RESPALDOS-Y-RESTAURACION.md`.
 
 ---
 
+## Despliegue en Coolify (MVP Hefesto)
+
+Coolify levanta este kit como un recurso **Docker Compose**. El compose está
+adaptado para que Traefik (el proxy de Coolify) lo enrute sin exponer puertos
+al host: `scripts/coolify-check.sh` valida esa conformidad.
+
+Variables nuevas que aparecen en este modo:
+
+| Variable | Default | Para qué |
+|---|---|---|
+| `VOLUME_PREFIX` | `hefesto` | Prefijo de los nombres de volumen (`<prefijo>-kopia-config`, etc.). Si tenés más de una instancia del kit en el mismo Docker host, fijala por instancia. |
+| `KOPIA_BIND_HOST` / `PUERTO_KOPIA` | `127.0.0.1` / `51515` | Solo se usan si agregás un override puntual con `ports:` para diagnóstico local. **En Coolify no se publican.** |
+
+Para diagnosticar localmente sin Traefik, agregá un override con `ports:`;
+los composes del kit no lo traen. El procedimiento completo (certificado,
+cliente, prueba) está en `docs/02-INSTALACION-COOLIFY.md`.
+
+---
+
 ## Documentación
 
 | Documento | De qué trata |

@@ -137,8 +137,14 @@ IMAGE_KOPIA="${IMAGE_KOPIA:-kopia/kopia:0.23.1@sha256:89fd95ee2942880ca00eae9642
 # Docker Compose les antepondria el prefijo del proyecto y el `docker run` de
 # este kit crearia un volumen DISTINTO del que usa el servidor: el script
 # crearia un repositorio nuevo y el servidor no lo veria.
-VOL_CONFIG="${VOL_CONFIG:-hefesto-kopia-config}"
-VOL_CACHE="${VOL_CACHE:-hefesto-kopia-cache}"
+#
+# A partir del despliegue via Coolify los nombres se parametrizan con
+# ${VOLUME_PREFIX:-hefesto} (mismo default que en compose.yaml). Si usas el
+# kit con `docker compose` directo, no hace falta tocar nada: el default
+# sigue produciendo los mismos volumenes que antes.
+VOL_PREFIX="${VOLUME_PREFIX:-hefesto}"
+VOL_CONFIG="${VOL_CONFIG:-${VOL_PREFIX}-kopia-config}"
+VOL_CACHE="${VOL_CACHE:-${VOL_PREFIX}-kopia-cache}"
 
 # kopia <argumentos...> -> ejecuta kopia en el modo configurado.
 # Los argumentos se pasan tal cual, sin reempaquetar.

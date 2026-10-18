@@ -44,11 +44,10 @@ services:
       - --tls-cert-file=/app/config/tls/kopia.crt
       - --tls-key-file=/app/config/tls/kopia.key
 
-    ports:
-      # Detras del proxy no se publica el puerto en todas las interfaces.
-      # Coolify/Traefik se conecta por la red interna del proyecto; si tu proxy
-      # es local al host, deja 127.0.0.1.
-      - "${KOPIA_BIND_HOST:-127.0.0.1}:${PUERTO_KOPIA:-51515}:51515"
+    # Sin 'ports:': Traefik (Coolify) llega al servidor por la red interna
+    # del proyecto. Si necesitas exponer el puerto para diagnostico local,
+    # agrega un override puntual con `-p ${KOPIA_BIND_HOST:-127.0.0.1}:${PUERTO_KOPIA:-51515}:51515`.
+    # Ver scripts/coolify-check.sh para el contrato completo.
 
     healthcheck:
       # El mismo chequeo, ahora contra HTTPS y anclado al certificado.
@@ -70,10 +69,11 @@ services:
       retries: 3
 
 volumes:
-  # Mismos nombres fijos que en compose.yaml. Ver el comentario de mas abajo.
+  # Mismo prefijo ${VOLUME_PREFIX:-hefesto} que en compose.yaml, para que los
+  # dos composes apunten a los mismos volumenes persistentes.
   kopia-config:
-    name: hefesto-kopia-config
+    name: ${VOLUME_PREFIX:-hefesto}-kopia-config
   kopia-cache:
-    name: hefesto-kopia-cache
+    name: ${VOLUME_PREFIX:-hefesto}-kopia-cache
   kopia-logs:
-    name: hefesto-kopia-logs
+    name: ${VOLUME_PREFIX:-hefesto}-kopia-logs
