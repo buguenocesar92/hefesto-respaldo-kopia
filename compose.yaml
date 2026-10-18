@@ -25,8 +25,9 @@ services:
     #
     # --address        : por defecto upstream es http://127.0.0.1:51515
     #                    (cli/command_server.go). Lo subimos a 0.0.0.0 DENTRO
-    #                    del contenedor; la exposicion al host la decide el
-    #                    bloque `ports:` de mas abajo, ligado a loopback.
+    #                    del contenedor para que Traefik (Coolify) llegue al
+    #                    servicio por la red interna del proyecto. NO se
+    #                    publica ningun puerto al host: ver scripts/coolify-check.sh.
     # --ui             : interfaz web KopiaUI (por defecto true).
     # --control-api    : API de control (por defecto true).
     #
@@ -63,18 +64,20 @@ services:
 
       TZ: ${KOPIA_TIMEZONE:-America/Santiago}
 
-    # PUBLICA SOLO EN LOOPBACK. Es el punto de seguridad mas importante del kit:
-    # el servidor expone la UI, la API de control y el endpoint /metrics de
-    # Prometheus, que upstream registra SIN autenticacion
-    # (cli/command_server_start.go: "init prometheus after adding interceptors
-    # that require credentials, so that this handler can be called without auth").
+    # NO SE PUBLICA NINGUN PUERTO AL HOST. El servidor queda accesible SOLO en
+    # la red interna del proyecto. El acceso desde afuera es por Traefik
+    # (Coolify), que enruta el dominio a este servicio.
     #
-    # Para exponerlo de verdad, usa compose.tls.yaml detras del proxy de
-    # Coolify (Traefik enruta el dominio). El puerto queda accesible solo por
-    # la red interna del proyecto. NO agregues 'ports:' aca: rompe el contrato
-    # del kit con Coolify (ver scripts/coolify-check.sh).
-    # Si necesitas diagnosticar localmente, expone con KOPIA_BIND_HOST via
-    # un override puntual.
+    # ADVERTENCIA DE SEGURIDAD: el servidor expone la UI, la API de control
+    # y el endpoint /metrics de Prometheus, que upstream registra SIN
+    # autenticacion (cli/command_server_start.go: "init prometheus after
+    # adding interceptors that require credentials, so that this handler
+    # can be called without auth"). Por eso en Traefik solo se debe enrutar
+    # la UI (/), NO /metrics ni la API de control.
+    #
+    # NO agregues 'ports:' aca: rompe el contrato del kit con Coolify
+    # (ver scripts/coolify-check.sh). Si necesitas diagnosticar localmente,
+    # expone el puerto con un override puntual.
 
     volumes:
       # Configuracion del repositorio: CONTIENE la configuracion que da acceso
