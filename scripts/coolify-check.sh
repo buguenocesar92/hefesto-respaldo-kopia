@@ -206,7 +206,7 @@ for compose in "${COMPOSES[@]}"; do
   # hardcoded sin ${VOLUME_PREFIX}).
   # Solo comprobamos el archivo que se esta verificando; en compose.tls.yaml
   # los volumes se redefinen, asi que ese compose los tiene que cumplir tambien.
-  if head -n 20 "${compose}" | grep -qE '^name:[[:space:]]'; then
+  if grep -qE '^name:[[:space:]]' "${compose}"; then
     error "${compose}: tiene 'name:' a nivel raiz (Coolify pone el nombre de proyecto)"
     falla_global=1
   fi
