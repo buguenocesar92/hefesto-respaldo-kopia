@@ -142,9 +142,12 @@ IMAGE_KOPIA="${IMAGE_KOPIA:-kopia/kopia:0.23.1@sha256:89fd95ee2942880ca00eae9642
 # ${VOLUME_PREFIX:-hefesto} (mismo default que en compose.yaml). Si usas el
 # kit con `docker compose` directo, no hace falta tocar nada: el default
 # sigue produciendo los mismos volumenes que antes.
-VOL_PREFIX="${VOLUME_PREFIX:-hefesto}"
-VOL_CONFIG="${VOL_CONFIG:-${VOL_PREFIX}-kopia-config}"
-VOL_CACHE="${VOL_CACHE:-${VOL_PREFIX}-kopia-cache}"
+#
+# IMPORTANTE: NO congelar VOL_CONFIG / VOL_CACHE al hacer `source lib.sh`.
+# Los scripts que llaman a kopia() (crear-repositorio.sh, verificar.sh,
+# restaurar.sh) hacen `source lib.sh` y DESPUES `cargar_env` para leer el
+# .env. Si el .env trae VOLUME_PREFIX=cliente1, hay que usar cliente1 al
+# montar el volumen, no el default. Por eso se calculan dentro de kopia().
 
 # kopia <argumentos...> -> ejecuta kopia en el modo configurado.
 # Los argumentos se pasan tal cual, sin reempaquetar.
@@ -152,10 +155,12 @@ kopia() {
   if [[ "${MODO}" == "nativo" ]]; then
     command kopia "$@"
   else
+    local vol_config="${VOL_CONFIG:-${VOLUME_PREFIX:-hefesto}-kopia-config}"
+    local vol_cache="${VOL_CACHE:-${VOLUME_PREFIX:-hefesto}-kopia-cache}"
     docker run --rm \
       --env KOPIA_PASSWORD \
-      -v "${VOL_CONFIG}:/app/config" \
-      -v "${VOL_CACHE}:/app/cache" \
+      -v "${vol_config}:/app/config" \
+      -v "${vol_cache}:/app/cache" \
       "${IMAGE_KOPIA}" "$@"
   fi
 }
