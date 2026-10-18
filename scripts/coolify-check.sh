@@ -3,8 +3,7 @@
 # coolify-check.sh - verifica que los compose files del kit cumplen el contrato
 # para desplegar en Coolify (Traefik + Docker Compose build pack).
 #
-# Chequea los puntos 1 y 2 del contrato (ver
-# .superpowers/minimax/coolify/plan.md, seccion "Contrato comun"):
+# Chequea los puntos 1 y 2 del contrato del kit con Coolify:
 #   1. Nada que salte Traefik ni de poder sobre el host en servicios sin
 #      profiles (ports, container_name, privileged, network_mode/pid/ipc host,
 #      cap_add, devices, security_opt unconfined, binds fuera del repo o
