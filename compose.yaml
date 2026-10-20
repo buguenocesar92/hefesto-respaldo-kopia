@@ -18,7 +18,6 @@ services:
     # Version fijada por etiqueta Y por digest. Nunca :latest.
     # Ver VERSION.md para la fecha de verificacion y como resolver el digest.
     image: kopia/kopia:0.23.1@sha256:89fd95ee2942880ca00eae964266958a394421ddbdf69bca62e38afc55f5900e
-    container_name: ${KOPIA_SERVER_NOMBRE:-kopia-repo-server}
     restart: unless-stopped
 
     # El ENTRYPOINT de la imagen oficial ES /bin/kopia
@@ -26,8 +25,9 @@ services:
     #
     # --address        : por defecto upstream es http://127.0.0.1:51515
     #                    (cli/command_server.go). Lo subimos a 0.0.0.0 DENTRO
-    #                    del contenedor; la exposicion al host la decide el
-    #                    bloque `ports:` de mas abajo, ligado a loopback.
+    #                    del contenedor para que Traefik (Coolify) llegue al
+    #                    servicio por la red interna del proyecto. NO se
+    #                    publica ningun puerto al host: ver scripts/coolify-check.sh.
     # --ui             : interfaz web KopiaUI (por defecto true).
     # --control-api    : API de control (por defecto true).
     #
@@ -64,16 +64,20 @@ services:
 
       TZ: ${KOPIA_TIMEZONE:-America/Santiago}
 
-    # PUBLICA SOLO EN LOOPBACK. Es el punto de seguridad mas importante del kit:
-    # el servidor expone la UI, la API de control y el endpoint /metrics de
-    # Prometheus, que upstream registra SIN autenticacion
-    # (cli/command_server_start.go: "init prometheus after adding interceptors
-    # that require credentials, so that this handler can be called without auth").
+    # NO SE PUBLICA NINGUN PUERTO AL HOST. El servidor queda accesible SOLO en
+    # la red interna del proyecto. El acceso desde afuera es por Traefik
+    # (Coolify), que enruta el dominio a este servicio.
     #
-    # Para exponerlo de verdad, usa compose.tls.yaml detras del proxy de
-    # Coolify. NO cambies esto a 0.0.0.0 sin TLS.
-    ports:
-      - "${KOPIA_BIND_HOST:-127.0.0.1}:${PUERTO_KOPIA:-51515}:51515"
+    # ADVERTENCIA DE SEGURIDAD: el servidor expone la UI, la API de control
+    # y el endpoint /metrics de Prometheus, que upstream registra SIN
+    # autenticacion (cli/command_server_start.go: "init prometheus after
+    # adding interceptors that require credentials, so that this handler
+    # can be called without auth"). Por eso en Traefik solo se debe enrutar
+    # la UI (/), NO /metrics ni la API de control.
+    #
+    # NO agregues 'ports:' aca: rompe el contrato del kit con Coolify
+    # (ver scripts/coolify-check.sh). Si necesitas diagnosticar localmente,
+    # expone el puerto con un override puntual.
 
     volumes:
       # Configuracion del repositorio: CONTIENE la configuracion que da acceso
@@ -119,17 +123,17 @@ services:
         max-file: "3"
 
 volumes:
-  # Volumenes NOMBRADOS con nombre EXPLICITO.
+  # Volumenes con nombre derivado de ${VOLUME_PREFIX}.
   #
   # Por defecto Docker Compose antepone el nombre del proyecto a los volumenes
-  # (`<proyecto>_kopia-config`). Eso romperia los scripts: `docker run -v
-  # kopia-config:/app/config` crearia un volumen DISTINTO al del servidor.
-  #
-  # Fijando `name:` sin prefijo, los contenedores desechables que lanzan
-  # lib.sh se conectan a los MISMOS volumenes que el servidor.
+  # (`<proyecto>_kopia-config`). Fijando `name:` con un prefijo optativo
+  # (variable VOLUME_PREFIX, default `hefesto`) los contenedores desechables
+  # que lanzan los scripts en scripts/lib.sh se conectan a los MISMOS volumenes
+  # que el servidor. Cambia VOLUME_PREFIX en Coolify si tenes mas de una
+  # instancia del kit compartiendo el mismo Docker host.
   kopia-config:
-    name: hefesto-kopia-config
+    name: ${VOLUME_PREFIX:-hefesto}-kopia-config
   kopia-cache:
-    name: hefesto-kopia-cache
+    name: ${VOLUME_PREFIX:-hefesto}-kopia-cache
   kopia-logs:
-    name: hefesto-kopia-logs
+    name: ${VOLUME_PREFIX:-hefesto}-kopia-logs

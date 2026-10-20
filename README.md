@@ -99,7 +99,7 @@ esquema existen los ACL (`kopia server acl enable`).
 ```
 hefesto-respaldo-kopia/
 ├── README.md                     Este archivo
-├── compose.yaml                  Kopia Repository Server, puerto en loopback
+├── compose.yaml                  Kopia Repository Server (sin puerto al host)
 ├── compose.tls.yaml              Override para exponer con TLS tras un proxy
 ├── .env.example                  Sin secretos. Con las obligatorias marcadas
 ├── .gitignore
@@ -173,7 +173,7 @@ chmod +x scripts/*.sh
 | Variable | Por qué importa |
 |---|---|
 | `KOPIA_PASSWORD` | **La clave del repositorio.** Ver más abajo. |
-| `KOPIA_BIND_HOST` | Déjalo en `127.0.0.1` salvo que tengas TLS y proxy. |
+| `KOPIA_BIND_HOST` | Solo se usa si agregás un override puntual con `ports:` para diagnóstico local. **En Coolify no se publica ningún puerto al host.** |
 | `KOPIA_IDENTITY_HOST` / `KOPIA_IDENTITY_USER` | Fijan el nombre del origen. Si cambian, el historial se parte en dos. |
 
 ---
@@ -205,6 +205,71 @@ conectado, no hay reset.
 4. La clave **no** se reutiliza como contraseña del bucket ni de la interfaz.
 
 Detalle completo: `docs/05-RESPALDOS-Y-RESTAURACION.md`.
+
+---
+
+## Despliegue en Coolify (MVP Hefesto)
+
+Coolify levanta este kit como un recurso **Docker Compose**. El compose está
+adaptado para que Traefik (el proxy de Coolify) lo enrute sin exponer puertos
+al host: `scripts/coolify-check.sh` valida esa conformidad.
+
+### Orden de arranque (importante)
+
+El servidor **no arranca si el repositorio no existe**. Antes del primer
+despliegue en Coolify, hay que correr `scripts/crear-repositorio.sh` en el
+**mismo host Docker** donde Coolify va a correr el contenedor, con el
+**mismo `VOLUME_PREFIX`** que se configuró en las variables de entorno del
+recurso. Si los prefijos no coinciden, el script crea el repositorio en
+volúmenes que el servidor no ve.
+
+Resumen del orden:
+
+1. En el host Docker, clonar el kit, completar `.env` (mismos secretos y
+   mismo `VOLUME_PREFIX` que después se ponen en Coolify).
+2. `./scripts/crear-repositorio.sh` en ese host.
+3. Recién ahí, crear el recurso Docker Compose en Coolify con esas mismas
+   variables de entorno.
+
+### Variables nuevas en este modo
+
+| Variable | Default | Para qué |
+|---|---|---|
+| `VOLUME_PREFIX` | `hefesto` | Prefijo de los nombres de volumen (`<prefijo>-kopia-config`, etc.). Si tenés más de una instancia del kit en el mismo Docker host, fijala por instancia. **Tiene que coincidir** entre el `.env` que use `crear-repositorio.sh` y las variables del recurso de Coolify. |
+| `KOPIA_BIND_HOST` / `PUERTO_KOPIA` | `127.0.0.1` / `51515` | Solo se usan si agregás un override puntual con `ports:` para diagnóstico local. **En Coolify no se publica ningún puerto al host.** |
+
+### Clientes remotos (gRPC) y TLS
+
+Si los clientes se conectan por gRPC desde fuera del host, hace falta TLS en
+el backend (gRPC requiere TLS, es un requisito de upstream, no una decisión
+nuestra). Pasos:
+
+1. Activar `compose.tls.yaml` como override en Coolify (campo **Docker
+   Compose Override** del recurso).
+2. Montar `kopia.crt` y `kopia.key` como **Storage** de Coolify en la ruta
+   `./config/tls/` del contenedor. Esa ruta está en `.gitignore` justamente
+   para no versionar certificados.
+3. Configurar Traefik con backend `https` para que hable TLS con Kopia.
+4. Definir `KOPIA_TLS_FINGERPRINT` en el `.env`. Una huella de certificado
+   **no es un secreto**: upstream la imprime al generar el certificado,
+   justamente para anotarla.
+
+### `/metrics` no se expone
+
+El servidor expone `/metrics` (Prometheus) **sin autenticación** (es una
+decisión de upstream, no del kit). En Traefik hay que enrutar **solo la UI
+(`/`)**, no `/metrics` ni la API de control. Si dejás la API de control
+alcanzable desde Internet, queda accesible a cualquiera.
+
+### Diagnóstico local sin Traefik
+
+Para diagnosticar localmente sin pasar por Traefik, agregá un archivo
+override con `ports:` en el servicio `kopia`. Los composes del kit no lo
+traen a propósito. **No uses `-p`** en el comando de docker compose: esa
+opción es el nombre del proyecto, no un puerto.
+
+El procedimiento completo (certificado, cliente, prueba) está en
+`docs/02-INSTALACION-COOLIFY.md`.
 
 ---
 
